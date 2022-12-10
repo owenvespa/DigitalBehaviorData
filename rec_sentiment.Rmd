@@ -1,0 +1,17 @@
+---
+title: "Recession- Sentiment Analysis"
+author: "Rhowena Vespa"
+date: "12/8/2022"
+output: html_document
+---
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(highcharter)
+data <- read.csv("rec_sent_aggreg.csv", header = TRUE)
+data$date_label <- as.Date(data$date_label)
+
+highchart() %>%
+  hc_add_series(data=  data,"line", hcaes(x = date_label, y = value, group=variable)) %>%
+  hc_xAxis(type = "datetime")
+```
+

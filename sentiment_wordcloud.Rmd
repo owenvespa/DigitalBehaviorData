@@ -1,0 +1,156 @@
+---
+title: "Recession Wordcloud"
+author: "Rhowena Vespa"
+date: "2022-12-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(ggplot2)
+library(lubridate)
+library(reshape2)
+library(dplyr)
+library(syuzhet) 
+library(stringr)
+library(tidyr)
+library(DT)
+```
+```{r}
+recession <- read.csv("recession.csv")
+colnames(recession)
+```
+
+```{r}
+recession$Post.Created <- ymd_hms(recession$created_at) 
+recession$Post.Created <- with_tz(recession$Post.Created,"America/New_York")
+recession$created_date <- as.Date(recession$Post.Created)
+```
+
+```{r}
+rec_sentiment <- get_nrc_sentiment(recession$text) 
+rec_all_senti <- cbind(recession, rec_sentiment)  #Combine sentiment ratings to create a new data frame
+
+```
+```{r}
+
+### Summary statistics by group variables
+rec_all_senti$date_label <- as.factor(rec_all_senti$created_date)
+
+rec_senti_aggregated <- rec_all_senti %>% 
+  group_by(date_label) %>%
+  summarise(anger = mean(anger), 
+            anticipation = mean(anticipation), 
+            disgust = mean(disgust), 
+            fear = mean(fear), 
+            joy = mean(joy), 
+            sadness = mean(sadness), 
+            surprise = mean(surprise), 
+            trust = mean(trust)) 
+
+rec_senti_aggregated <- rec_senti_aggregated %>% pivot_longer(cols = -c(date_label), names_to = "variable", values_to = "value")
+```
+
+```{r}
+library(readr)
+write_csv(rec_senti_aggregated,"rec_sent_aggreg.csv")
+```
+
+# CLEAN DATA BEFORE SENTIMENT ANALYSIS
+
+# LOAD PACKAGES
+
+```{r}
+library(tidyverse)
+library(readr)
+library(dplyr)
+library(quanteda)
+library(quanteda.textstats)
+library(quanteda.textplots)
+library(ggplot2)
+library(DT)
+library(tm)
+library(stringr)
+library(tidytext)
+library(plyr)
+library(tidyverse)
+library(quanteda.textmodels)
+library(devtools)
+library(caret)
+library(e1071)
+library(quanteda.dictionaries)
+#library(devtools)
+#devtools::install_github("kbenoit/quanteda.dictionaries")
+library(quanteda.dictionaries)
+library(syuzhet) 
+#remotes::install_github("quanteda/quanteda.sentiment")
+library(quanteda.sentiment)
+```
+
+# Healey DATA
+## Load Data
+```{r}
+recess <- read_csv("recession.csv")
+recess$text <- gsub("@[[:alpha:]]*","", recess$text) #remove Twitter handles
+recess$text <- gsub("&amp", "", recess$text)
+recess$text <- gsub("recession", "", recess$text)
+recess$text <- gsub("_", "", recess$text)
+
+```
+## Data Cleaning/ Preprocessing
+```{r}
+recess_corpus <- Corpus(VectorSource(recess$text))
+recess_corpus <- tm_map(recess_corpus, tolower) #lowercase
+recess_corpus <- tm_map(recess_corpus, removeWords, 
+                     c("recession","rt", "amp"))
+recess_corpus <- tm_map(recess_corpus, removeWords, 
+                     stopwords("english"))
+recess_corpus <- tm_map(recess_corpus, removePunctuation)
+recess_corpus <- tm_map(recess_corpus, stripWhitespace)
+recess_corpus <- tm_map(recess_corpus, removeNumbers)
+```
+## Tokenize and stemming
+
+```{r}
+recess_corpus <- corpus(recess_corpus,text_field = "text") 
+recess_text_df <- as.data.frame(recess_corpus)
+recess_tokens <- tokens(recess_corpus)
+recess_tokens <- tokens_wordstem(recess_tokens) 
+dfm(recess_tokens)
+```
+
+```{r}
+
+write_csv(recess_text_df,"recess_text_df.csv")
+```
+
+
+
+# CREATE DFM FOR WORDCLOUD
+## Create dfm
+```{r}
+# create a full dfm for comparison---use this to append to polarity
+recess_dfm <- tokens(recess_tokens,
+                  remove_punct = TRUE,
+                  remove_symbols = TRUE,
+                  remove_numbers = TRUE,
+                  remove_url = TRUE,
+                  split_hyphens = FALSE,
+                  split_tags = FALSE,
+                  include_docvars = TRUE) %>%
+  tokens_tolower() %>%
+  dfm(remove = stopwords('english')) %>%
+  dfm_trim(min_termfreq = 10, verbose = FALSE) %>%
+  dfm()
+```
+
+## Word Cloud
+
+```{r}
+library(RColorBrewer)
+textplot_wordcloud(recess_dfm, scale=c(5,1), max.words=50, random.order=FALSE, rot.per=0.35, use.r.layout=FALSE, colors=brewer.pal(8, "Dark2"))
+```
